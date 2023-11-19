@@ -43,6 +43,18 @@
   $httpcode = curl_getinfo($curl, CURLINFO_HTTP_CODE);
   if ($httpcode!=$expected_code) throw new Exception("http code $httpcode in ".curl_getinfo($curl,CURLINFO_EFFECTIVE_URL));
  }
+ function CheckHttpCodeChannel($curl)
+ {
+  $httpcode = curl_getinfo($curl, CURLINFO_HTTP_CODE);
+  $url = curl_getinfo($curl,CURLINFO_EFFECTIVE_URL);
+  if ($httpcode==404)
+  {
+        echo "fetch error $httpcode for url : $url\n";
+        return false;
+  }
+  if ($httpcode!=200) throw new Exception("http code $httpcode in $url");
+  return true;
+ }
 
  function create_m3u($fname)
  {
@@ -67,10 +79,10 @@
  {
   curl_setopt_array($curl, array(
         CURLOPT_COOKIEFILE => $cookfile,
-	CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_RETURNTRANSFER => true,
         CURLOPT_USERAGENT => $ua,
-	CURLOPT_TIMEOUT_MS => 5000,
-	CURLOPT_CONNECTTIMEOUT_MS => 5000,
+        CURLOPT_TIMEOUT_MS => 5000,
+        CURLOPT_CONNECTTIMEOUT_MS => 5000,
         CURLOPT_SSL_VERIFYPEER=>false
   ));
 
@@ -78,7 +90,6 @@
   curl_setopt ($curl, CURLOPT_URL, "https://fe.smotreshka.tv/login");
   curl_exec($curl);
   CheckHttpCode($curl);
-
 
   curl_setopt ($curl, CURLOPT_POST, false);
   curl_setopt ($curl, CURLOPT_URL, "https://fe.smotreshka.tv/channels");
@@ -96,11 +107,13 @@
     $title = $info->metaInfo->title;
     curl_setopt ($curl, CURLOPT_URL, "https://fe.smotreshka.tv/playback-info/".$ch->id);
     $resp = curl_exec($curl);
-    CheckHttpCode($curl);
-    $json2 = json_decode($resp);
-    if (!isset($json2)) throw new Exception("bad playback-info json");
-    $lang = StructArraySearch($json2->languages,"id","ru-RU",0);
-    array_push($rends,(object)array("title" => $title, "rend" => $json2->languages[$lang]->renditions));
+    if (CheckHttpCodeChannel($curl))
+    {
+        $json2 = json_decode($resp);
+        if (!isset($json2)) throw new Exception("bad playback-info json");
+        $lang = StructArraySearch($json2->languages,"id","ru-RU",0);
+        array_push($rends,(object)array("title" => $title, "rend" => $json2->languages[$lang]->renditions));
+    }
    }
   }
   if ($mode=='split')
